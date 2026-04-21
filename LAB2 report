@@ -1,0 +1,118 @@
+Крок 1-2
+FR-01 [Must]: Система дозволяє реєстрацію через email.
+FR-02 [Must]: Зареєстрований користувач може завантажити файл та отримати оброблений звіт.
+FR-03 [Must]: ШІ оброблює файли.
+FR-04 [Should]: Підтримується пошук файлів за ключовими тегами.
+FR-05 [Should]: Файли можна позначати тегами.
+FR-06 [Could]: Файл можна зробити публічним та поділитися посиланням.
+FR-07 [Must]: Користувач може видалити та коригувати файл.
+
+Крок 3. Побудувати діаграму прецедентів
+@startuml
+left to right direction
+
+actor "Користувач" as User
+actor "AI Service" as AI <<actor>>
+
+rectangle "AI Document Management System" {
+  usecase "Реєстрація" as UC1
+  usecase "Завантаження файлу" as UC2
+  usecase "Обробка файлу ШІ" as UC3
+  usecase "Керування файлами\n(видалення/коригування)" as UC4
+  usecase "Пошук та тегування" as UC5
+  usecase "Надання публічного доступу" as UC6
+}
+
+User --> UC1
+User --> UC2
+User --> UC4
+User --> UC5
+
+UC2 ..> UC3 : <<include>>
+UC6 ..> UC4 : <<extend>>
+
+UC3 -- AI
+@enduml
+
+Крок 4. Побудувати діаграму класів
+@startuml
+class User {
+  - email: String
+  - passwordHash: String
+  + register(): boolean
+  + login(): boolean
+}
+
+class Document {
+  - id: int
+  - fileName: String
+  - uploadDate: DateTime
+  - isPublic: boolean
+  + upload(): void
+  + delete(): void
+  + setPublicStatus(status: boolean): void
+}
+
+class Report {
+  - id: int
+  - aiSummary: String
+  - confidenceScore: double
+  + exportToPdf(): byte[]
+}
+
+class Tag {
+  - name: String
+  + getRelatedDocuments(): List
+}
+
+class AIService {
+  + analyze(doc: Document): Report
+}
+User "1" -- "*" Document : owns >
+Document "1" *-- "0..1" Report : contains >
+Document "*" o-- "*" Tag : categorized by >
+AIService ..> Report : creates >
+AIService ..> Document : processes >
+
+@enduml
+
+Крок 5. Побудувати діаграму послідовності
+@startuml
+actor "Користувач" as User
+participant ":UI Interface" as UI
+participant ":DocumentManager" as DM
+participant ":AIService" as AI
+database ":Database" as DB
+
+User -> UI : uploadFile(file)
+activate UI
+
+UI -> DM : validate(file)
+activate DM
+
+alt file size < 20MB
+    DM -> DB : saveDocument(file)
+    activate DB
+    DB --> DM : docID
+    deactivate DB
+    
+    DM -> AI : processDocument(docID)
+    activate AI
+    Note right of AI: ШІ аналізує текст (FR-03)
+    AI -> DB : saveReport(reportData)
+    AI --> DM : reportReady
+    deactivate AI
+    
+    DM --> UI : showSuccess(report)
+    UI --> User : Відобразити звіт на екрані
+else file too large
+    DM --> UI : showError("File too large")
+    UI --> User : Повідомлення про помилку
+end
+
+deactivate DM
+deactivate UI
+@enduml
+
+Крок 6. Скласти матрицю трасовності
+https://docs.google.com/spreadsheets/d/1dXZ7yyqj6n0DmFgMFcd9bb-PvMa6I77_gZcftc5MewM/edit?usp=sharing

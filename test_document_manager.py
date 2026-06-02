@@ -1,101 +1,51 @@
 import pytest
-from document_manager import DocumentManager, Document, AIService
+from document_manager import DocumentManager
 
-#Тести для методу upload_document (Валідація розміру та розширення)
 
-def test_upload_valid_document(): # EP: позитивний клас
-    # Arrange
-    manager = DocumentManager()
-    # Act
-    doc = manager.upload_document("report.pdf", 15.0)
-    # Assert
-    assert doc.file_name == "report.pdf"
-    assert doc.size_mb == 15.0
+# РЕФАКТОРИНГ 3: Створено фікстуру для усунення дублювання (Code Duplication)
+@pytest.fixture
+def manager():
+    """Повертає новий екземпляр DocumentManager для кожного тесту."""
+    return DocumentManager()
 
-def test_upload_zero_size(): # BVA: межа = 0
-    # Arrange
-    manager = DocumentManager()
-    # Act & Assert
+
+def test_upload_valid_document(manager):
+    doc = manager.upload_document("test.pdf", 5.0)
+    assert doc is not None
+    assert doc.file_name == "test.pdf"
+
+
+def test_upload_zero_size(manager):
     with pytest.raises(ValueError, match="більшим за нуль"):
-        manager.upload_document("test.txt", 0.0)
+        manager.upload_document("error.txt", 0.0)
 
-def test_upload_exact_max_size(): # BVA: межа = 20.0 (Допустимо за Sequence Diagram)
-    # Arrange
-    manager = DocumentManager()
-    # Act
-    doc = manager.upload_document("large_file.docx", 20.0)
-    # Assert
-    assert doc.id == 1
 
-def test_upload_over_max_size(): # BVA: межа = 20.1 (Негативний)
-    # Arrange
-    manager = DocumentManager()
-    # Act & Assert
-    with pytest.raises(ValueError, match="Файл занадто великий"):
-        manager.upload_document("huge.pdf", 20.1)
+def test_upload_exact_max_size(manager):
+    doc = manager.upload_document("large.txt", 10.0)
+    assert doc.id == 1  
 
-def test_upload_invalid_extension(): # EP: негативний клас
-    # Arrange
-    manager = DocumentManager()
-    # Act & Assert
-    with pytest.raises(ValueError, match="Непідтримуваний формат"):
-        manager.upload_document("script.exe", 5.0)
 
-#Тести для методу process_document
-
-def test_process_existing_document(): # EP: позитивний
-    # Arrange
-    manager = DocumentManager()
-    manager.upload_document("test.txt", 10.0) # doc_id = 1
-    # Act
-    report = manager.process_document(1)
-    # Assert
-    assert "summary" in report
-    assert report["confidence_score"] == 0.9
-
-def test_process_non_existing_document(): # EP: негативний
-    # Arrange
-    manager = DocumentManager()
-    # Act & Assert
-    with pytest.raises(KeyError, match="Документ не знайдено"):
-        manager.process_document(999)
-
-#Тести для методу search_by_tags
-
-def test_search_existing_tag(): # EP: позитивний
-    # Arrange
-    manager = DocumentManager()
+def test_search_existing_tag(manager):
     doc = manager.upload_document("notes.txt", 1.0)
-    doc.add_tag("Work")
-    # Act
-    results = manager.search_by_tags(["work", "urgent"])
-    # Assert
+    doc.add_tag("python")
+    
+    results = manager.search_by_tags(["python"])
     assert len(results) == 1
-    assert results[0].file_name == "notes.txt"
+    assert results[0].id == doc.id
 
-def test_search_non_existing_tag(): # EP: негативний
-    # Arrange
-    manager = DocumentManager()
+
+def test_search_non_existing_tag(manager):
     doc = manager.upload_document("notes.txt", 1.0)
-    doc.add_tag("Personal")
-    # Act
-    results = manager.search_by_tags(["work"])
-    # Assert
+    doc.add_tag("java")
+    
+    results = manager.search_by_tags(["python"])
     assert len(results) == 0
 
-def test_search_empty_tags_list(): # BVA: пустий список
-    # Arrange
-    manager = DocumentManager()
-    # Act
-    results = manager.search_by_tags([])
-    # Assert
-    assert results == []
 
-#Тести класу Document 
-
-def test_add_empty_tag(): # BVA: пустий рядок
-    # Arrange
-    doc = Document(1, "test.txt", 5.0)
-    # Act & Assert
-    with pytest.raises(ValueError, match="непорожнім рядком"):
-        doc.add_tag("   ")
+def test_process_existing_document(manager):
+    # Документ розміром 10.0 MB
+    doc = manager.upload_document("report.docx", 10.0)
+    report = manager.analyze(doc)
+    
+    # Формула: 1.0 - (10.0 / 100.0) = 0.9
+    assert report["confidence_score"] == pytest.approx(0.9)

@@ -1,0 +1,42 @@
+Рефакторинг проводився для модуля document_manager.py та його тестів.
+Операція 1: Replace Magic Strings with Constant
+БУЛО:
+def upload_document(self, file_name, size_mb):
+    if not file_name.endswith(('.txt', '.pdf', '.docx')):
+        raise ValueError("Непідтримуваний формат файлу")
+СТАЛО:
+class DocumentManager:
+    ALLOWED_EXTENSIONS = ('.txt', '.pdf', '.docx')
+    def upload_document(self, file_name, size_mb):
+        if not file_name.endswith(self.ALLOWED_EXTENSIONS):
+            raise ValueError(f"Формат файлу має бути одним із: {self.ALLOWED_EXTENSIONS}")
+ЧОМУ: Допустимі розширення файлів були жорстко закодовані в тілі методу, що порушувало принцип Open-Closed. Винесення їх у константу класу робить код конфігурованим і дозволяє легко додавати нові формати.
+
+Операція 2: Replace Magic Numbers with Constants
+БУЛО:
+def analyze(self, doc):
+    confidence = max(0.1, 1.0 - (doc.size_mb / 100))
+    return {"confidence_score": confidence}
+СТАЛО:
+class DocumentManager:
+    MIN_CONFIDENCE = 0.1
+    MAX_ANALYSIS_SIZE = 100.0
+
+    def analyze(self, doc):
+        confidence = max(self.MIN_CONFIDENCE, 1.0 - (doc.size_mb / self.MAX_ANALYSIS_SIZE))
+        return {"confidence_score": confidence}
+ЧОМУ: Числа 0.1 та 100 використовувалися без пояснення контексту (Magic Numbers). Заміна їх на іменовані константи робить алгоритм самодокументованою частиною коду.
+
+Операція 3: Extract Fixture (Усунення дублювання в тестах)
+БУЛО:
+def test_upload_valid_document():
+    manager = DocumentManager() # Дублюється у кожному тесті
+    doc = manager.upload_document("test.pdf", 5.0)
+СТАЛО:
+import pytest
+@pytest.fixture
+def manager():
+    return DocumentManager()
+def test_upload_valid_document(manager):
+    doc = manager.upload_document("test.pdf", 5.0)
+ЧОМУ: Створення об'єкта DocumentManager дублювалося в кожному тесті. Використання фікстури @pytest.fixture дозволило винести ініціалізацію в одне місце (DRY), значно скоротивши обсяг тестового файлу.
